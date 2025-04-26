@@ -8,3 +8,4 @@ altai-rs = { path = "../altai-rs" }
 polaris_fsw = { path = "../polaris_fsw" }
 ndarray = "0.16.1"
 polaris_log = { path = "../polaris_log" }
+log = "0.4.27"
