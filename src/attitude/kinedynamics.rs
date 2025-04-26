@@ -1,10 +1,24 @@
 use altai_rs as lib;
-use altai_rs::meta::types::Generic1D;
+use altai_rs::meta::types::{Generic1D, Generic2D};
 use altai_rs::quatlib::psi_q;
+use altai_rs::veclib::{fcross, fdot};
 use ndarray::{array, concatenate, s, Axis};
-// use ndarray_linalg::Inverse;
+// use ndarray_linalg::Inverse::inverse;
 
-pub fn rigid_body_dynamics(_t: f64, state0: &Generic1D, inpt: &Generic1D) -> Generic1D {
+fn inv_3x3(j: &Generic2D) -> Generic2D {
+    let jx = j.slice(s![0..3, 0]).to_owned().insert_axis(Axis(1));
+    let jy = j.slice(s![0..3, 1]).to_owned().insert_axis(Axis(1));
+    let jz = j.slice(s![0..3, 2]).to_owned().insert_axis(Axis(1));
+
+    let ijx = fcross(&jy, &jz); // x column of inv
+    let ijy = fcross(&jz, &jx); // y column of inv
+    let ijz = fcross(&jx, &jy); // z column of inv
+    let detj = fdot(jx, ijx.to_owned()); // Determinant of J
+
+    concatenate![Axis(1), ijx, ijy, ijz].t().to_owned() / detj[0]
+}
+
+pub fn rigid_body_dynamics(_t: f64, state0: &Generic1D, inpt: &Generic2D) -> Generic1D {
     /*
     Inputs:
     0-3: Quaternion at Time
@@ -14,14 +28,13 @@ pub fn rigid_body_dynamics(_t: f64, state0: &Generic1D, inpt: &Generic1D) -> Gen
     0-3: dQuaternion at Time
     4-6: dOmega at Time
     */
-    let j_mat = array![[10., 0., 0.], [0., 20., 0.], [0., 0., 30.]];
-    // let inv_j = J_MAT.inv().unwrap();
-    let inv_j = array![[1. / 10., 0., 0.], [0., 1. / 20., 0.], [0., 0., 1. / 30.]];
 
     // unpack state vector
     let q = state0.slice(s![0..4]);
     let w = state0.slice(s![4..7]);
-    let tq = inpt.slice(s![0..3]);
+    let tq = inpt.slice(s![0..3, 0]);
+    let j_mat = inpt.slice(s![0..3, 1..4]).to_owned();
+    let inv_j = inv_3x3(&j_mat);
 
     // quaternion dot; Markley 3.79
     // 0.5 * w \otimes q
